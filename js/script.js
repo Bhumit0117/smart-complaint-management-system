@@ -50,6 +50,10 @@
     return Boolean(complaint.department) && ["Forwarded to Department", "In Progress", "Resolved"].indexOf(complaint.status) >= 0;
   }
   function currentDepartment() { return session().department || ""; }
+  function isStudentComplaint(complaint) {
+    var active = session();
+    return active.role === "student" && (!active.name || complaint.student === active.name || complaint.student === "Demo student");
+  }
 
   function render(list, target, role) {
     if (!target) return;
@@ -179,6 +183,41 @@
       location.href = isAdmin ? "admin-dashboard.html" : isDepartment ? data.dashboards[department] : "student-dashboard.html";
     });
   }
+  function setupRegistration() {
+    var form = document.querySelector("#registerForm");
+    if (!form) return;
+    var error = document.createElement("p");
+    error.className = "form-error";
+    error.setAttribute("aria-live", "polite");
+    form.appendChild(error);
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var name = (form.querySelector("#name") || {}).value || "";
+      var email = (form.querySelector("#email") || {}).value || "";
+      var password = (form.querySelector("#password") || {}).value || "";
+      var confirmPassword = (form.querySelector("#confirmPassword") || {}).value || "";
+      if (!name.trim() || !email.trim() || password.length < 4 || password !== confirmPassword) {
+        error.textContent = password !== confirmPassword ? "Passwords do not match." : "Complete all fields and use a password of at least four characters.";
+        return;
+      }
+      localStorage.setItem("scsDemoSession", JSON.stringify({ name: name.trim(), role: "student", department: "" }));
+      location.href = "student-dashboard.html";
+    });
+  }
+  function setupProfileForms() {
+    document.querySelectorAll("#adminProfileForm, #studentProfileForm").forEach(function (form) {
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var name = form.querySelector("input[type=text], input:not([type])");
+        var message = form.querySelector("#profileMessage");
+        if (name && !name.value.trim()) {
+          message.textContent = "Name is required.";
+          return;
+        }
+        message.textContent = "Saved for demo.";
+      });
+    });
+  }
   function setupAttachments() {
     var input = document.querySelector("#attachments");
     var previews = document.querySelector("#previews");
@@ -220,14 +259,23 @@
   });
   showPasswordToggles();
   setupLogin();
+  setupRegistration();
+  setupProfileForms();
   setupAttachments();
 
   var complaintForm = document.querySelector("#complaintForm");
   if (complaintForm) complaintForm.addEventListener("submit", function (event) {
     event.preventDefault();
     var formData = new FormData(complaintForm);
+    var title = String(formData.get("title") || "").trim();
+    var description = String(formData.get("description") || "").trim();
+    if (!title || !description) {
+      var formMessage = document.querySelector("#formMessage");
+      if (formMessage) formMessage.textContent = "Title and description are required.";
+      return;
+    }
     var list = complaints();
-    var item = { id: "CMP-" + (1043 + list.length), title: formData.get("title"), description: formData.get("description"), category: formData.get("category"), priority: formData.get("priority"), status: "Pending Admin Review", department: "", student: session().name || "Demo student", date: "Today", decision: "Awaiting Admin Review", timeline: [["Submitted", "Today"]] };
+    var item = { id: "CMP-" + (1043 + list.length), title: title, description: description, category: formData.get("category"), priority: formData.get("priority"), status: "Pending Admin Review", department: "", student: session().name || "Demo student", date: "Today", decision: "Awaiting Admin Review", timeline: [["Submitted", "Today"]] };
     list.unshift(item);
     save(list);
     location.href = "student-complaint-details.html?id=" + encodeURIComponent(item.id);
@@ -270,12 +318,15 @@
       location.reload();
     });
   }
+  if (!complaintList && document.querySelector("[data-count=total]")) stats(complaints());
 
   var detailRoot = document.querySelector("[data-detail]");
   if (detailRoot) {
     var item = complaints().find(function (complaint) { return complaint.id === query("id"); });
     if (!item) {
       detailRoot.innerHTML = '<p class="notice">Complaint not found.</p>';
+    } else if (location.pathname.indexOf("student-complaint-details") >= 0 && !isStudentComplaint(item)) {
+      detailRoot.innerHTML = '<p class="notice">This complaint is not available in your student portal.</p>';
     } else if (location.pathname.indexOf("department-complaint-details") >= 0 && (!isForwarded(item) || item.department !== currentDepartment())) {
       detailRoot.innerHTML = '<p class="notice">This complaint has not been forwarded to your department.</p>';
     } else {
