@@ -1,6 +1,7 @@
 (function () {
   "use strict";
 
+  // Shared configuration comes from data.js so page-specific behavior stays here.
   var data = window.SmartComplaintData || {
     departments: ["IT", "Electrical", "Cleaning", "Hostel", "Library", "Academic", "Maintenance", "Transportation"],
     credentials: {},
@@ -12,6 +13,8 @@
     { id: "CMP-1038", title: "Library study lights", category: "Library", priority: "Low", status: "Resolved", department: "Library", student: "Rohan Joshi", date: "12 Sep 2026", description: "Three lights were not working near the reference section.", remarks: "Lights replaced.", timeline: [["Submitted", "12 Sep 2026"], ["Accepted by Admin", "12 Sep 2026"], ["Forwarded to Library", "13 Sep 2026"], ["Resolved", "14 Sep 2026"]] }
   ];
 
+  // Storage helpers keep the demo data in one place. This is browser-only storage,
+  // not secure authentication or a replacement for a backend database.
   function read(key, fallback) {
     try {
       var value = JSON.parse(localStorage.getItem(key));
@@ -55,6 +58,9 @@
     return active.role === "student" && (!active.name || complaint.student === active.name || complaint.student === "Demo student");
   }
 
+  // Complaint cards are rendered from data because the same records appear in
+  // student, admin, and department views. Static page headings and form structure
+  // remain in the HTML files so they are easy to find and edit.
   function render(list, target, role) {
     if (!target) return;
     target.innerHTML = list.length ? list.map(function (complaint) {
@@ -64,7 +70,7 @@
         (showDescription ? "<p>" + escapeHtml(complaint.description) + "</p>" : "") + '<span class="badge">' + escapeHtml(complaint.category) + "</span> " +
         (complaint.department ? '<span class="badge">Assigned: ' + escapeHtml(complaint.department) + "</span> " : "") +
         '<a class="btn btn-secondary btn-small" href="' + detail + encodeURIComponent(complaint.id) + '">View details</a>' +
-        (role === "department" ? '<div class="filters dept-update"><select data-dept-status><option>In Progress</option><option>Resolved</option></select><input data-dept-remarks placeholder="Resolution remarks"><button type="button" class="btn btn-primary btn-small" data-update>Save update</button></div>' : "") + "</article>";
+        (role === "department" ? '<div class="filters dept-update"><select data-dept-status><option' + (complaint.status === "In Progress" ? " selected" : "") + '>In Progress</option><option' + (complaint.status === "Resolved" ? " selected" : "") + '>Resolved</option></select><input data-dept-remarks placeholder="Resolution remarks"><button type="button" class="btn btn-primary btn-small" data-update>Save update</button></div>' : "") + "</article>";
     }).join("") : '<div class="empty">No complaints match these filters.</div>';
   }
   function stats(list) {
@@ -218,6 +224,14 @@
       });
     });
   }
+  function setupDemoButtons() {
+    document.querySelectorAll("[data-demo-update]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        button.textContent = "Saved for demo";
+        button.disabled = true;
+      });
+    });
+  }
   function setupAttachments() {
     var input = document.querySelector("#attachments");
     var previews = document.querySelector("#previews");
@@ -229,9 +243,10 @@
       }).join("");
       previews.querySelectorAll("[data-remove-file]").forEach(function (button) {
         button.addEventListener("click", function () {
-          files.splice(Number(button.getAttribute("data-remove-file")), 1);
-          draw();
-        });
+        var removed = files.splice(Number(button.getAttribute("data-remove-file")), 1)[0];
+        if (removed && removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+        draw();
+      });
       });
     }
     input.addEventListener("change", function () {
@@ -251,6 +266,8 @@
     });
   }
 
+  // Shared navigation and form behavior is initialized only when its matching
+  // elements exist, so the same script can safely load on every page.
   document.querySelectorAll(".logout-link").forEach(function (link) {
     link.addEventListener("click", function () { localStorage.removeItem("scsDemoSession"); });
   });
@@ -261,6 +278,7 @@
   setupLogin();
   setupRegistration();
   setupProfileForms();
+  setupDemoButtons();
   setupAttachments();
 
   var complaintForm = document.querySelector("#complaintForm");
@@ -275,7 +293,11 @@
       return;
     }
     var list = complaints();
-    var item = { id: "CMP-" + (1043 + list.length), title: title, description: description, category: formData.get("category"), priority: formData.get("priority"), status: "Pending Admin Review", department: "", student: session().name || "Demo student", date: "Today", decision: "Awaiting Admin Review", timeline: [["Submitted", "Today"]] };
+    var highestId = list.reduce(function (highest, complaint) {
+      var number = Number(String(complaint.id || "").replace("CMP-", ""));
+      return Number.isFinite(number) && number > highest ? number : highest;
+    }, 1042);
+    var item = { id: "CMP-" + (highestId + 1), title: title, description: description, category: formData.get("category"), priority: formData.get("priority"), status: "Pending Admin Review", department: "", student: session().name || "Demo student", date: "Today", decision: "Awaiting Admin Review", timeline: [["Submitted", "Today"]] };
     list.unshift(item);
     save(list);
     location.href = "student-complaint-details.html?id=" + encodeURIComponent(item.id);

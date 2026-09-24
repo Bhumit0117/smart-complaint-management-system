@@ -1,1 +1,0 @@
-﻿(function(){document.querySelectorAll("[data-demo-update]").forEach(function(btn){btn.addEventListener("click",function(){btn.textContent="Saved for demo";btn.disabled=true})})})();

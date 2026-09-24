@@ -27,7 +27,26 @@ Student: `student-login.html`, `student-register.html`, `student-submit-complain
 Admin: `admin-login.html`, `admin-dashboard.html`, `admin-complaints.html`, `admin-complaint-details.html`, `admin-departments.html`, `admin-reports.html`, and `admin-profile.html`.
 Department: `department-portal.html`, shared `department-login.html` / `department-dashboard.html`, plus dedicated IT, Electrical, Cleaning, Hostel, Library, Academic, Maintenance, and Transportation login/dashboard pairs.
 
-Shared behavior lives in `js/script.js`, `js/data.js`, and `js/departments.js`; shared presentation lives in `css/style.css`.
+Shared behavior lives in `js/script.js` and shared demo configuration lives in `js/data.js`; shared presentation lives in `css/style.css`.
+
+## Beginner-friendly file guide
+
+- **HTML files:** contain the readable page structure, headings, navigation, forms, tables, and empty containers for dynamic records. Start here when changing page text or adding a form field.
+- **`css/style.css`:** contains the complete visual theme. It is organized into global values, navigation/public content, authentication, portal components, feedback, attachment previews, and responsive rules. Change the colour variables near the top when adjusting the theme.
+- **`js/data.js`:** contains department names, demo credentials, dashboard routes, and allowed complaint statuses.
+- **`js/script.js`:** contains behavior only: storage, demo login/registration, navigation, validation, attachment previews, complaint rendering, filters, admin decisions, department updates, and dashboard statistics. Dynamic complaint records remain in JavaScript because they depend on browser data.
+
+The HTML pages were formatted so each element can be read and edited directly. Repeated portal pages intentionally remain separate static entry points to preserve every existing route; their shared appearance comes from the single stylesheet and shared script.
+
+### Common changes
+
+- Change a heading or paragraph in the matching `.html` file.
+- Change colours or button appearance in the variables and button section of `css/style.css`.
+- Add a form field in the relevant HTML form, then update the submit handler in `js/script.js` if the value must be validated or stored.
+- Add a dashboard card in the page's `.stats-grid`; use a matching `data-count` attribute only when `stats()` should calculate its value.
+- Add a navigation link inside that page's `.nav-links` container.
+
+The application remains a frontend demonstration. A real implementation still needs server-side authentication, authorization, validation, and durable database storage.
 
 
 ## Demo credentials

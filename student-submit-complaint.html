@@ -1,2 +1,85 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Submit complaint | Smart Complaint System</title><link rel="stylesheet" href="css/style.css"></head><body><nav class="navbar"><div class="container navbar-content"><a class="brand" href="index.html">Smart <span>Complaint System</span></a><div class="nav-links"><a href="student-dashboard.html">Dashboard</a><a href="student-my-complaints.html">My complaints</a><a href="index.html" class="logout-link">Log out</a></div></div></nav><main class="page"><div class="container" style="max-width:760px"><div class="page-title"><div><span class="eyebrow">STUDENT PORTAL</span><h1>Submit a complaint</h1><p class="text-muted">Give the team enough context to act quickly.</p></div></div><div class="card"><form id="complaintForm"><div class="form-group"><label for="title">Short title</label><input id="title" name="title" required placeholder="e.g. Broken classroom projector"></div><div class="form-group"><label for="description">Description</label><textarea id="description" name="description" required rows="6" placeholder="What happened, where, and when?"></textarea></div><div class="form-group"><label for="category">Category</label><select id="category" name="category"><option>Academic</option><option>IT & Technical</option><option>Electrical</option><option>Hostel</option><option>Cleaning & Sanitation</option><option>Library</option><option>Maintenance</option><option>Transportation</option><option>Other</option></select></div><div class="form-group"><label for="priority">Priority</label><select id="priority" name="priority"><option>Low</option><option selected>Medium</option><option>High</option></select></div><div class="form-group"><label for="attachments">Photo attachments <span class="text-muted">(optional, up to 5 JPG/PNG/WebP files, 2 MB each)</span></label><input id="attachments" type="file" accept="image/jpeg,image/png,image/webp" multiple><div id="previews" class="preview-grid" aria-live="polite"></div><p class="text-muted">Photos are previewed locally for this frontend demonstration; they are not uploaded to a server.</p></div><button class="btn btn-primary">Submit complaint</button><a class="btn btn-secondary" href="student-dashboard.html">Cancel</a><p id="formMessage" class="notice" style="margin-top:14px"></p></form></div></div></main><script src="js/data.js"></script><script src="js/script.js"></script></body></html>
-
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Submit complaint | Smart Complaint System</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!-- Student navigation and complaint submission page. -->
+<nav class="navbar">
+<div class="container navbar-content">
+<a class="brand" href="index.html">Smart <span>Complaint System</span>
+</a>
+<div class="nav-links">
+<a href="student-dashboard.html">Dashboard</a>
+<a href="student-my-complaints.html">My complaints</a>
+<a href="index.html" class="logout-link">Log out</a>
+</div>
+</div>
+</nav>
+<main class="page">
+<div class="container form-container">
+<div class="page-title">
+<div>
+<span class="eyebrow">STUDENT PORTAL</span>
+<h1>Submit a complaint</h1>
+<p class="text-muted">Give the team enough context to act quickly.</p>
+</div>
+</div>
+<div class="card">
+<form id="complaintForm">
+<div class="form-group">
+<label for="title">Short title</label>
+<input id="title" name="title" required placeholder="e.g. Broken classroom projector">
+</div>
+<div class="form-group">
+<label for="description">Description</label>
+<textarea id="description" name="description" required rows="6" placeholder="What happened, where, and when?">
+</textarea>
+</div>
+<div class="form-group">
+<label for="category">Category</label>
+<select id="category" name="category">
+<option>Academic</option>
+<option>IT & Technical</option>
+<option>Electrical</option>
+<option>Hostel</option>
+<option>Cleaning & Sanitation</option>
+<option>Library</option>
+<option>Maintenance</option>
+<option>Transportation</option>
+<option>Other</option>
+</select>
+</div>
+<div class="form-group">
+<label for="priority">Priority</label>
+<select id="priority" name="priority">
+<option>Low</option>
+<option selected>Medium</option>
+<option>High</option>
+</select>
+</div>
+<div class="form-group">
+<label for="attachments">Photo attachments <span class="text-muted">(optional, up to 5 JPG/PNG/WebP files, 2 MB each)</span>
+</label>
+<input id="attachments" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+<div id="previews" class="preview-grid" aria-live="polite">
+</div>
+<p class="text-muted">Photos are previewed locally for this frontend demonstration; they are not uploaded to a server.</p>
+</div>
+<button class="btn btn-primary">Submit complaint</button>
+<a class="btn btn-secondary" href="student-dashboard.html">Cancel</a>
+<p id="formMessage" class="notice message-spacing">
+</p>
+</form>
+</div>
+</div>
+</main>
+<script src="js/data.js">
+</script>
+<script src="js/script.js">
+</script>
+</body>
+</html>

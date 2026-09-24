@@ -1,3 +1,7 @@
+// Beginner-editable demo configuration.
+// Change department names, dashboard routes, and demo credentials here.
+// These credentials are for the frontend demonstration only; do not use them
+// as real authentication or store real passwords in this file.
 window.SmartComplaintData = {
   departments: ["IT", "Electrical", "Cleaning", "Hostel", "Library", "Academic", "Maintenance", "Transportation"],
   credentials: {

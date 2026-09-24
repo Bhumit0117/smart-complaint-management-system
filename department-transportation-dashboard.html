@@ -1,4 +1,80 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>transportationation Department dashboard | Smart Complaint System</title><link rel="stylesheet" href="css/style.css"></head><body><nav class="navbar"><div class="container navbar-content"><a class="brand" href="index.html">Smart <span>Complaint System</span></a><div class="nav-links"><a href="department-portal.html">All departments</a><a href="index.html" class="logout-link">Log out</a></div></div></nav><main class="page"><div class="container"><div class="page-title"><div><span class="eyebrow">DEPARTMENT DASHBOARD</span><h1>transportationation Department</h1><p class="text-muted">Review and update reports assigned to your service team.</p></div></div><div class="stats-grid"><div class="card stat-card"><small>Assigned</small><strong data-count="total">3</strong></div><div class="card stat-card"><small>Pending Admin Review</small><strong data-count="pending">1</strong></div><div class="card stat-card"><small>In progress</small><strong data-count="progress">1</strong></div><div class="card stat-card"><small>Resolved</small><strong data-count="resolved">1</strong></div></div><div class="card"><div class="filters"><input data-filter="search" placeholder="Search assigned reports"><select data-filter="status"><option>All</option><option>Pending Admin Review</option><option>Forwarded to Department</option><option>In Progress</option><option>Resolved</option><option>Rejected</option></select></div><div id="complaintList" class="complaint-list"></div><div class="filters" style="margin-top:18px"><select><option>Update selected status</option><option>In Progress</option><option>Resolved</option></select><button class="btn btn-primary" data-demo-update>Save update</button></div></div></div></main><script src="js/data.js"></script><script src="js/script.js"></script><script src="js/departments.js"></script></body></html>
+﻿<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transportationation Department dashboard | Smart Complaint System</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="navbar">
+<div class="container navbar-content">
+<a class="brand" href="index.html">Smart <span>Complaint System</span>
+</a>
+<div class="nav-links">
+<a href="department-portal.html">All departments</a>
+<a href="index.html" class="logout-link">Log out</a>
+</div>
+</div>
+</nav>
+<main class="page">
+<div class="container">
+<div class="page-title">
+<div>
+<span class="eyebrow">DEPARTMENT DASHBOARD</span>
+<h1>transportationation Department</h1>
+<p class="text-muted">Review and update reports assigned to your service team.</p>
+</div>
+</div>
+<div class="stats-grid">
+<div class="card stat-card">
+<small>Assigned</small>
+<strong data-count="total">3</strong>
+</div>
+<div class="card stat-card">
+<small>Pending Admin Review</small>
+<strong data-count="pending">1</strong>
+</div>
+<div class="card stat-card">
+<small>In progress</small>
+<strong data-count="progress">1</strong>
+</div>
+<div class="card stat-card">
+<small>Resolved</small>
+<strong data-count="resolved">1</strong>
+</div>
+</div>
+<div class="card">
+<div class="filters">
+<input data-filter="search" placeholder="Search assigned reports">
+<select data-filter="status">
+<option>All</option>
+<option>Pending Admin Review</option>
+<option>Forwarded to Department</option>
+<option>In Progress</option>
+<option>Resolved</option>
+<option>Rejected</option>
+</select>
+</div>
+<div id="complaintList" class="complaint-list">
+</div>
+<div class="filters top-spacing">
+<select>
+<option>Update selected status</option>
+<option>In Progress</option>
+<option>Resolved</option>
+</select>
+<button class="btn btn-primary" data-demo-update>Save update</button>
+</div>
+</div>
+</div>
+</main>
+<script src="js/data.js">
+</script>
+<script src="js/script.js">
+</script>
+</body>
+</html>
 
 
 
