@@ -4,7 +4,7 @@ Smart Complaint System is a beginner-friendly, responsive **frontend-only** prot
 
 ## Run locally
 
-Open `index.html` directly in a browser (`file://` works), or use any static web server. No build step, package manager, backend, database, or external CDN is required.
+Open `index.html` directly in a browser (`file://` works), or use any static web server. No build step, package manager, backend, or database is required. The shared stylesheet loads Bootstrap 5.3 from jsDelivr for responsive utilities and component styling, so an internet connection is recommended for the full visual experience.
 
 ## Demo behaviour
 
