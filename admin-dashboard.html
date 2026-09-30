@@ -7,15 +7,11 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<!-- Admin navigation: the shared stylesheet keeps this shell consistent with other portal pages. -->
 <nav class="navbar">
 <div class="container navbar-content">
 <a class="brand" href="index.html">Smart <span>Complaint System</span> <small>ADMIN</small>
 </a>
-<div class="nav-links">
-<a href="admin-dashboard.html">Overview</a>
-<a href="index.html" class="logout-link">Log out</a>
-</div>
+<div class="nav-links"></div>
 </div>
 </nav>
 <!-- Admin dashboard: statistics and complaint cards are populated from browser demo data. -->
@@ -46,21 +42,10 @@
 <strong data-count="resolved">0</strong>
 </div>
 </div>
-<div class="card">
-<h2>All complaints</h2>
-<div class="filters">
-<input data-filter="search" placeholder="Search ID, title, category">
-<select data-filter="status">
-<option>All</option>
-<option>Pending Admin Review</option>
-<option>Forwarded to Department</option>
-<option>In Progress</option>
-<option>Resolved</option>
-<option>Rejected</option>
-</select>
-</div>
-<div id="complaintList" class="complaint-list">
-</div>
+<div class="card top-spacing">
+<h2>Admin workspace</h2>
+<p class="text-muted">Use <strong>New Complaints</strong> to review, accept, forward, or reject newly submitted student complaints.</p>
+<a class="btn btn-primary" href="admin-complaints.html">Open new complaints</a>
 </div>
 </div>
 </main>
@@ -70,4 +55,3 @@
 </script>
 </body>
 </html>
-

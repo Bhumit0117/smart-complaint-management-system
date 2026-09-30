@@ -611,6 +611,24 @@ th {
 .student-sidebar-backdrop.open {
   display:block
 }
+.portal-menu-toggle {
+  display:inline-flex;
+  margin:14px 16px 0
+}
+.portal-sidebar {
+  position:fixed;
+  z-index:10;
+  inset:68px auto 0 0;
+  transform:translateX(-100%);
+  transition:transform .25s ease
+}
+.portal-sidebar.open {
+  transform:translateX(0)
+}
+.portal-main {
+  padding:22px 0;
+  width:100%
+}
 .student-main {
   padding:22px 0
 }
@@ -706,6 +724,56 @@ th {
   display:none;
 }
 .student-sidebar-backdrop {
+  display:none
+}
+.portal-page .navbar {
+  position:sticky
+}
+.portal-sidebar {
+  width:240px;
+  flex:0 0 240px;
+  min-height:calc(100vh - 68px);
+  background:#102a43;
+  padding:24px 14px;
+  color:#fff
+}
+.portal-sidebar nav {
+  display:grid;
+  gap:6px
+}
+.portal-sidebar a {
+  display:flex;
+  align-items:center;
+  color:#d9e2ec;
+  border-radius:8px;
+  padding:11px 13px;
+  font-weight:700
+}
+.portal-sidebar a:hover,.portal-sidebar a.active {
+  color:#fff;
+  background:rgba(255,255,255,.14);
+  text-decoration:none
+}
+.portal-sidebar .logout-link {
+  margin-top:14px;
+  color:#fecaca
+}
+.portal-page {
+  min-height:100vh
+}
+.portal-main {
+  flex:1;
+  min-width:0;
+  padding:35px 0
+}
+.portal-page {
+  display:flex;
+  flex-wrap:wrap
+}
+.portal-page .navbar {
+  flex:0 0 100%
+}
+.portal-menu-toggle {
   display:none
 }
 .profile-avatar {
