@@ -212,6 +212,28 @@
   }
   function setupProfileForms() {
     document.querySelectorAll("#adminProfileForm, #studentProfileForm").forEach(function (form) {
+      if (form.id === "studentProfileForm") {
+        var stored = read("scsStudentProfile", {});
+        ["studentName", "studentEmail", "studentPhone", "studentId"].forEach(function (id) {
+          var field = form.querySelector("#" + id);
+          if (field && stored[id]) field.value = stored[id];
+        });
+        var storedAvatar = stored.studentAvatar;
+        if (storedAvatar && form.querySelector("#profilePreview")) form.querySelector("#profilePreview").src = storedAvatar;
+        var picture = form.querySelector("#studentPicture");
+        if (picture) picture.addEventListener("change", function () {
+          var file = picture.files[0];
+          if (!file) return;
+          if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 2 * 1024 * 1024) {
+            window.alert("Choose a JPG, PNG, or WebP image no larger than 2 MB.");
+            picture.value = "";
+            return;
+          }
+          var reader = new FileReader();
+          reader.onload = function () { form.querySelector("#profilePreview").src = reader.result; };
+          reader.readAsDataURL(file);
+        });
+      }
       form.addEventListener("submit", function (event) {
         event.preventDefault();
         var name = form.querySelector("input[type=text], input:not([type])");
@@ -220,9 +242,34 @@
           message.textContent = "Name is required.";
           return;
         }
+        if (form.id === "studentProfileForm") {
+          var phone = form.querySelector("#studentPhone");
+          if (phone && phone.value.trim() && !/^[0-9+()\s-]{7,20}$/.test(phone.value.trim())) {
+            message.textContent = "Enter a valid phone number.";
+            return;
+          }
+          var profile = {};
+          form.querySelectorAll("input").forEach(function (field) { if (field.id) profile[field.id] = field.value.trim(); });
+          profile.studentAvatar = form.querySelector("#profilePreview").src;
+          saveProfile(profile);
+          var active = session();
+          active.name = profile.studentName;
+          localStorage.setItem("scsDemoSession", JSON.stringify(active));
+        }
         message.textContent = "Saved for demo.";
       });
     });
+  }
+  function saveProfile(profile) { localStorage.setItem("scsStudentProfile", JSON.stringify(profile)); }
+  function setupStudentSidebar() {
+    var toggle = document.querySelector("[data-student-menu]");
+    var sidebar = document.querySelector(".student-sidebar");
+    var backdrop = document.querySelector(".student-sidebar-backdrop");
+    if (!toggle || !sidebar || !backdrop) return;
+    function close() { sidebar.classList.remove("open"); backdrop.classList.remove("open"); }
+    toggle.addEventListener("click", function () { sidebar.classList.toggle("open"); backdrop.classList.toggle("open"); });
+    backdrop.addEventListener("click", close);
+    sidebar.querySelectorAll("a").forEach(function (link) { link.addEventListener("click", close); });
   }
   function setupDemoButtons() {
     document.querySelectorAll("[data-demo-update]").forEach(function (button) {
@@ -280,6 +327,7 @@
   setupProfileForms();
   setupDemoButtons();
   setupAttachments();
+  setupStudentSidebar();
 
   var complaintForm = document.querySelector("#complaintForm");
   if (complaintForm) complaintForm.addEventListener("submit", function (event) {
@@ -339,6 +387,15 @@
       save(list);
       location.reload();
     });
+  }
+  var trackList = document.querySelector("#trackList");
+  if (trackList) {
+    var tracked = complaints().filter(function (complaint) { return isStudentComplaint(complaint); });
+    trackList.innerHTML = tracked.length ? tracked.map(function (complaint) {
+      var steps = ["Submitted", "Pending Admin Review", "Accepted & Forwarded", "Department Processing", "Resolved"];
+      var current = complaint.status === "Rejected" ? "Rejected: " + (complaint.rejectionReason || "Rejected by Admin") : complaint.status;
+      return '<article class="card top-spacing"><div class="complaint-top"><div><h2>' + escapeHtml(complaint.title) + '</h2><small class="text-muted">' + escapeHtml(complaint.id) + '</small></div><span class="badge ' + badge(complaint.status) + '">' + escapeHtml(current) + '</span></div><div class="timeline">' + steps.map(function (step) { return '<div class="timeline-item"><strong>' + escapeHtml(step) + '</strong><p class="text-muted">' + (step === "Submitted" || (step === "Pending Admin Review" && complaint.status !== "Pending Admin Review" && complaint.status !== "Rejected") ? "Completed or recorded" : step === complaint.status ? "Current status" : "Pending") + '</p></div>'; }).join("") + '</div></article>';
+    }).join("") : '<p class="empty">You have not submitted any complaints yet.</p>';
   }
   if (!complaintList && document.querySelector("[data-count=total]")) stats(complaints());
 

@@ -1,51 +1,5 @@
-﻿<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Student profile | Smart Complaint System</title>
-<link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-<nav class="navbar">
-<div class="container navbar-content">
-<a class="brand" href="index.html">Smart <span>Complaint System</span>
-</a>
-<div class="nav-links">
-<a href="student-dashboard.html">Dashboard</a>
-<a href="student-my-complaints.html">My complaints</a>
-<a href="index.html" class="logout-link">Log out</a>
-</div>
-</div>
-</nav>
-<main class="page">
-<div class="container narrow-container">
-<div class="page-title">
-<div>
-<span class="eyebrow">ACCOUNT</span>
-<h1>Student profile</h1>
-</div>
-</div>
-<div class="card">
-<form id="studentProfileForm">
-<div class="form-group">
-<label for="studentName">Name</label>
-<input id="studentName" value="Demo student" required>
-</div>
-<div class="form-group">
-<label for="studentEmail">Email</label>
-<input id="studentEmail" type="email" value="student@demo.edu" required>
-</div>
-<button class="btn btn-primary" type="submit">Save profile</button>
-<p id="profileMessage" class="notice message-spacing" aria-live="polite">
-</p>
-</form>
-</div>
-</div>
-</main>
-<script src="js/data.js">
-</script>
-<script src="js/script.js">
-</script>
-</body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Student profile | Smart Complaint System</title><link rel="stylesheet" href="css/style.css"></head><body>
+<nav class="navbar"><div class="container navbar-content"><a class="brand" href="student-dashboard.html">Smart <span>Complaint System</span></a><button class="btn btn-secondary student-menu-toggle" type="button" data-student-menu>Menu</button><div class="nav-links"><span class="text-muted" data-user-name>Demo student</span></div></div></nav>
+<div class="student-shell"><aside class="student-sidebar"><nav aria-label="Student navigation"><a href="student-dashboard.html">Dashboard</a><a href="student-submit-complaint.html">Submit Complaint</a><a href="student-my-complaints.html">My Complaints</a><a href="student-track-complaint.html">Track Complaint</a><a href="student-notifications.html">Notifications</a><a class="active" href="student-profile.html">Profile</a><a class="logout-link" href="student-login.html">Logout</a></nav></aside><div class="student-sidebar-backdrop"></div>
+<main class="student-main"><div class="container narrow-container"><div class="page-title"><div><span class="eyebrow">ACCOUNT</span><h1>Student profile</h1></div></div><div class="card"><form id="studentProfileForm"><div class="text-center"><img id="profilePreview" class="profile-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' fill='%23eff6ff'/%3E%3Ctext x='48' y='58' text-anchor='middle' font-size='38' fill='%232563eb'%3ES%3C/text%3E%3C/svg%3E" alt="Profile preview"></div><div class="form-group"><label for="studentPicture">Profile picture</label><input id="studentPicture" type="file" accept="image/jpeg,image/png,image/webp"></div><div class="form-group"><label for="studentName">Student name</label><input id="studentName" required value="Demo student"></div><div class="form-group"><label for="studentEmail">Gmail / email</label><input id="studentEmail" type="email" required value="student@demo.edu"></div><div class="form-group"><label for="studentPhone">Phone number</label><input id="studentPhone" type="tel" placeholder="+91 9876543210"></div><div class="form-group"><label for="studentId">Student ID</label><input id="studentId" placeholder="Optional"></div><button class="btn btn-primary" type="submit">Save Profile</button><p id="profileMessage" class="notice message-spacing" aria-live="polite"></p></form></div></div></main></div>
+<script src="js/data.js"></script><script src="js/script.js"></script></body></html>
