@@ -271,6 +271,65 @@
     backdrop.addEventListener("click", close);
     sidebar.querySelectorAll("a").forEach(function (link) { link.addEventListener("click", close); });
   }
+  function setupPortalShell() {
+    var path = location.pathname.toLowerCase();
+    var isAdmin = path.indexOf("admin-") >= 0 && path.indexOf("-login") < 0;
+    var isDepartment = path.indexOf("department-") >= 0 && path.indexOf("-login") < 0 && path.indexOf("department-portal") < 0;
+    if ((!isAdmin && !isDepartment) || !document.querySelector(".navbar")) return;
+    if (isDepartment) {
+      document.querySelectorAll("[data-demo-update]").forEach(function (button) {
+        var parent = button.closest(".filters");
+        if (parent) parent.remove();
+      });
+    }
+    var activePath = path.split("/").pop() || "";
+    if (isDepartment && activePath.indexOf("dashboard") >= 0) {
+      var dashboardList = document.querySelector("#complaintList");
+      if (dashboardList) {
+        var dashboardCard = dashboardList.closest(".card");
+        if (dashboardCard) dashboardCard.remove();
+      }
+    }
+    var active = function (href) {
+      var parts = href.split("?");
+      if (activePath !== parts[0]) return "";
+      if (parts[1]) return query("view") === parts[1].replace("view=", "") ? " class=\"active\"" : "";
+      return " class=\"active\"";
+    };
+    var links = isAdmin ? [
+      ["admin-dashboard.html", "Dashboard"],
+      ["admin-complaints.html", "New Complaints"],
+      ["admin-departments.html", "Departments"],
+      ["admin-reports.html", "Reports"],
+      ["admin-notifications.html", "Notifications"],
+      ["admin-profile.html", "Profile"]
+    ] : [
+      [data.dashboards[currentDepartment()] || "department-dashboard.html", "Dashboard"],
+      ["department-complaints.html?view=new", "New Complaints"],
+      ["department-complaints.html?view=assigned", "Assigned Complaints"],
+      ["department-complaints.html?view=progress", "In Progress"],
+      ["department-complaints.html?view=resolved", "Resolved"],
+      ["department-notifications.html", "Notifications"],
+      ["department-profile.html", "Profile"]
+    ];
+    var navbar = document.querySelector(".navbar");
+    navbar.innerHTML = '<div class="container navbar-content"><a class="brand" href="' + (isAdmin ? "admin-dashboard.html" : (data.dashboards[currentDepartment()] || "department-dashboard.html")) + '">Smart <span>Complaint System</span> <small>' + (isAdmin ? "ADMIN" : "DEPARTMENT") + '</small></a><button class="btn btn-secondary portal-menu-toggle" type="button" data-portal-menu aria-label="Open navigation">Menu</button><div class="nav-links"><span class="text-muted" data-user-name>' + escapeHtml(session().name || (isAdmin ? "Admin" : currentDepartment() + " team")) + '</span></div></div>';
+    var sidebar = document.createElement("aside");
+    sidebar.className = "portal-sidebar";
+    sidebar.innerHTML = '<nav aria-label="' + (isAdmin ? "Admin" : "Department") + ' navigation">' +
+      links.map(function (link) { return '<a' + active(link[0]) + ' href="' + link[0] + '">' + link[1] + "</a>"; }).join("") +
+      '<a class="logout-link" href="index.html">Logout</a></nav>';
+    var main = document.querySelector("main");
+    if (main) {
+      document.body.classList.add("portal-page");
+      main.classList.add("portal-main");
+      document.body.insertBefore(sidebar, main);
+      var toggle = navbar.querySelector("[data-portal-menu]");
+      var close = function () { sidebar.classList.remove("open"); };
+      toggle.addEventListener("click", function () { sidebar.classList.toggle("open"); });
+      sidebar.querySelectorAll("a").forEach(function (link) { link.addEventListener("click", close); });
+    }
+  }
   function setupDemoButtons() {
     document.querySelectorAll("[data-demo-update]").forEach(function (button) {
       button.addEventListener("click", function () {
@@ -328,6 +387,7 @@
   setupDemoButtons();
   setupAttachments();
   setupStudentSidebar();
+  setupPortalShell();
 
   var complaintForm = document.querySelector("#complaintForm");
   if (complaintForm) complaintForm.addEventListener("submit", function (event) {
@@ -352,6 +412,12 @@
   });
 
   var complaintList = document.querySelector("#complaintList");
+  if (!complaintList && (location.pathname.toLowerCase().indexOf("admin-") >= 0 || location.pathname.toLowerCase().indexOf("department-") >= 0)) {
+    var overview = complaints();
+    var overviewRole = location.pathname.toLowerCase().indexOf("admin-") >= 0 ? "admin" : "department";
+    if (overviewRole === "department") overview = overview.filter(function (complaint) { return isForwarded(complaint) && complaint.department === currentDepartment(); });
+    stats(overview);
+  }
   if (complaintList) {
     var all = complaints();
     var path = location.pathname;
@@ -364,6 +430,13 @@
     }
     if (role === "student") all = all.filter(function (complaint) { return !session().name || complaint.student === session().name || complaint.student === "Demo student"; });
     if (role === "department") all = all.filter(function (complaint) { return isForwarded(complaint) && complaint.department === currentDepartment(); });
+    if (role === "admin" && document.querySelector("[data-admin-view=new]")) all = all.filter(function (complaint) { return complaint.status === "Pending Admin Review"; });
+    if (role === "department") {
+      var view = query("view");
+      if (view === "new") all = all.filter(function (complaint) { return complaint.status === "Forwarded to Department"; });
+      if (view === "progress") all = all.filter(function (complaint) { return complaint.status === "In Progress"; });
+      if (view === "resolved") all = all.filter(function (complaint) { return complaint.status === "Resolved"; });
+    }
     render(all, complaintList, role);
     stats(all);
     document.querySelectorAll("[data-filter]").forEach(function (input) {
