@@ -9,7 +9,7 @@ Open `index.html` directly in a browser (`file://` works), or use any static web
 ## Demo behaviour
 
 - Sign-in forms validate the documented demo username/password pair for the selected portal.
-- Complaints and the demo session are stored in browser `localStorage`; reset them by clearing site data.
+- Complaints, notifications, and student accounts are stored in browser `localStorage` so every tab and role works with the same data, while the active sign-in is kept in `sessionStorage` so each browser tab keeps its own login (Student, Admin, or a department). Clear site data to reset everything.
 - The complaint form accepts up to five image attachments (JPG, PNG, or WebP; 2 MB each), previews filenames and images, and supports removal before submit and supports removing previews.
 - Search and status filters update the complaint list immediately.
 - Admin and department screens are visual workflow demonstrations, not protected production portals.

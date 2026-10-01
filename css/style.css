@@ -470,6 +470,12 @@ th {
   color:var(--blue);
   margin-bottom:16px
 }
+.submission-actions {
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:12px
+}
 .empty {
   text-align:center;
   padding:35px;
@@ -720,8 +726,10 @@ th {
   min-width:0;
   padding:35px 0
 }
+@media(min-width:801px) {
 .student-menu-toggle {
   display:none;
+}
 }
 .student-sidebar-backdrop {
   display:none
@@ -797,4 +805,7 @@ th {
 }
 .password-toggle input {
   width:auto
+}
+.text-center {
+  text-align:center;
 }

@@ -32,7 +32,33 @@
     return value;
   }
   function save(value) { localStorage.setItem("scsComplaints", JSON.stringify(value)); }
-  function session() { return read("scsDemoSession", {}); }
+  // The active sign-in is tab-local on purpose. sessionStorage belongs to a single
+  // browser tab, so a Student tab keeps its Student login while an Admin or a
+  // different department signs in in another tab. Complaints, notifications,
+  // accounts, and student profiles deliberately stay in localStorage because that
+  // data has to be shared between roles and tabs.
+  var SESSION_KEY = "scsDemoSession";
+  function session() {
+    try {
+      var value = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+      return value && typeof value === "object" ? value : {};
+    } catch (error) {
+      // Storage is unavailable (or holds unreadable data): treat the tab as signed out.
+      return {};
+    }
+  }
+  function writeSession(value) {
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(value));
+    } catch (error) {
+      // A tab that refuses storage stays signed in for the current page only.
+    }
+  }
+  function clearSession() {
+    // Logout ends the sign-in of this tab and of no other tab.
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (error) { /* storage unavailable */ }
+    try { localStorage.removeItem(SESSION_KEY); } catch (error) { /* storage unavailable */ }
+  }
   function query(name) { return new URLSearchParams(location.search).get(name); }
   function escapeHtml(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (character) {
@@ -47,15 +73,205 @@
   }
   function addTimeline(complaint, label) {
     complaint.timeline = complaint.timeline || [];
-    complaint.timeline.push([label, "Today"]);
+    complaint.timeline.push([label, formatDate()]);
   }
   function isForwarded(complaint) {
     return Boolean(complaint.department) && ["Forwarded to Department", "In Progress", "Resolved"].indexOf(complaint.status) >= 0;
   }
   function currentDepartment() { return session().department || ""; }
+  function students() {
+    var value = read("scsUsers", []);
+    return Array.isArray(value) ? value : [];
+  }
+  function saveStudents(list) {
+    try {
+      localStorage.setItem("scsUsers", JSON.stringify(list));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  function findStudent(email) {
+    var wanted = String(email || "").trim().toLowerCase();
+    return students().filter(function (student) { return String(student.email || "").toLowerCase() === wanted; })[0] || null;
+  }
+  // One stable student identifier is used everywhere: the normalized account
+  // email. Session, complaint, and notification records all resolve their owner
+  // through these helpers so a complaint written on one page is still found by
+  // the details page, My Complaints, and the notification list after a refresh.
+  function normalizeKey(value) {
+    return String(value == null ? "" : value).trim().toLowerCase();
+  }
+  function studentKey(active) {
+    var value = active || session();
+    return normalizeKey(value.id || value.email);
+  }
+  function ownerKey(complaint) {
+    if (!complaint) return "";
+    return normalizeKey(complaint.studentId || complaint.studentEmail);
+  }
+  // Older builds stored sessions, accounts, and complaints without the stable
+  // student id, which made a student's own complaint look like it belonged to
+  // somebody else. Repair those keys in place so nothing is lost on upgrade.
+  function repairStoredIdentity() {
+    try {
+      // Builds before this fix kept the active sign-in in localStorage, which every
+      // tab of the browser shares. Adopt it into this tab once, then drop the global
+      // copy so no tab can silently change another tab's identity.
+      var legacy = localStorage.getItem(SESSION_KEY);
+      if (legacy !== null) {
+        if (sessionStorage.getItem(SESSION_KEY) === null) sessionStorage.setItem(SESSION_KEY, legacy);
+        localStorage.removeItem(SESSION_KEY);
+      }
+      var active = session();
+      if (active && typeof active === "object" && active.role === "student") {
+        var key = normalizeKey(active.id || active.email);
+        if (key && active.id !== key) {
+          active.id = key;
+          writeSession(active);
+        }
+      }
+      var accounts = read("scsUsers", null);
+      if (Array.isArray(accounts)) {
+        var accountsChanged = false;
+        accounts.forEach(function (account) {
+          if (!account || !account.email) return;
+          var accountKey = normalizeKey(account.email);
+          if (account.id !== accountKey) { account.id = accountKey; accountsChanged = true; }
+        });
+        if (accountsChanged) localStorage.setItem("scsUsers", JSON.stringify(accounts));
+      }
+      var stored = read("scsComplaints", null);
+      if (Array.isArray(stored)) {
+        var storedChanged = false;
+        stored.forEach(function (complaint) {
+          if (!complaint) return;
+          var owner = normalizeKey(complaint.studentId || complaint.studentEmail);
+          if (!owner || complaint.studentId === owner) return;
+          complaint.studentId = owner;
+          storedChanged = true;
+        });
+        if (storedChanged) save(stored);
+      }
+    } catch (error) {
+      // Repairs are best effort; unreadable storage must not break the page.
+    }
+  }
+  // Demo-only digest so a sign-in still works after a page refresh. Plain passwords
+  // are never written to storage; a real deployment must verify credentials on a server.
+  function digest(value) {
+    var text = "scs::" + String(value || "");
+    var hash = 2166136261;
+    for (var index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = (hash * 16777619) >>> 0;
+    }
+    return hash.toString(16);
+  }
+  function studentLabel() {
+    var active = session();
+    return active.role === "admin" ? "Admin" : active.role === "department" ? "Department team" : "Student";
+  }
+  function studentProfile() { return read("scsStudentProfile", {}); }
+  function formatDate(date) {
+    var value = date || new Date();
+    var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var day = String(value.getDate());
+    return (day.length === 1 ? "0" + day : day) + " " + months[value.getMonth()] + " " + value.getFullYear();
+  }
+  function resizeImage(file, maxEdge, quality, done) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var original = String(reader.result || "");
+      var image = new Image();
+      image.onload = function () {
+        var width = image.width || maxEdge;
+        var height = image.height || maxEdge;
+        var scale = Math.min(1, maxEdge / Math.max(width, height));
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(width * scale));
+        canvas.height = Math.max(1, Math.round(height * scale));
+        try {
+          canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+          done(canvas.toDataURL("image/jpeg", quality) || original);
+        } catch (error) {
+          done(original);
+        }
+      };
+      image.onerror = function () { done(""); };
+      image.src = original;
+    };
+    reader.onerror = function () { done(""); };
+    reader.readAsDataURL(file);
+  }
+  function notifications() {
+    var value = read("scsNotifications", []);
+    return Array.isArray(value) ? value : [];
+  }
+  function statusKind(status) {
+    if (status === "Rejected") return "rejected";
+    if (status === "In Progress") return "in-progress";
+    if (status === "Resolved") return "resolved";
+    if (status === "Forwarded to Department") return "forwarded";
+    return "submitted";
+  }
+  function notificationKind(complaint) {
+    return statusKind(complaint && complaint.status);
+  }
+  // Notifications belong to the stable student id. Repeating the same status
+  // action on the same complaint refreshes the existing entry instead of
+  // stacking duplicates, while a new status always adds a new notification.
+  function notifyStudent(complaint, title, message) {
+    if (!complaint) return;
+    var owner = ownerKey(complaint);
+    if (!owner) return;
+    var kind = notificationKind(complaint);
+    var list = notifications();
+    var entry = { id: "NTF-" + Date.now() + "-" + list.length, studentId: owner, complaintId: complaint.id, kind: kind, title: title, message: message, status: complaint.status, date: formatDate() };
+    var position = -1;
+    list.forEach(function (note, index) {
+      if (!note) return;
+      if (normalizeKey(note.studentId) !== owner) return;
+      if (note.complaintId !== complaint.id) return;
+      if (normalizeKey(note.kind || statusKind(note.status)) !== kind) return;
+      position = index;
+    });
+    if (position >= 0) {
+      entry.id = list[position].id;
+      list[position] = entry;
+    } else {
+      list.unshift(entry);
+    }
+    try {
+      localStorage.setItem("scsNotifications", JSON.stringify(list.slice(0, 60)));
+    } catch (error) {
+      // Storage is full; notifications stay informational so the complaint itself still saves.
+    }
+  }
+  function studentStatusMessage(complaint) {
+    var reference = "Complaint " + complaint.id;
+    if (complaint.status === "In Progress") return "Your complaint is now in progress. " + reference + " is being handled by the " + complaint.department + " department.";
+    if (complaint.status === "Resolved") return "Your complaint has been resolved. " + reference + " was closed by the " + complaint.department + " department.";
+    return "Your complaint is now " + complaint.status + ". " + reference + ".";
+  }
+  function studentStatusTitle(complaint) {
+    if (complaint.status === "In Progress") return "Complaint in progress";
+    if (complaint.status === "Resolved") return "Complaint resolved";
+    return "Complaint update";
+  }
   function isStudentComplaint(complaint) {
     var active = session();
-    return active.role === "student" && (!active.name || complaint.student === active.name || complaint.student === "Demo student");
+    var key = studentKey(active);
+    if (active.role !== "student" || !key) return false;
+    return ownerKey(complaint) === key;
+  }
+  function requireStudent() {
+    var page = (location.pathname.split("/").pop() || "").toLowerCase();
+    if (page.indexOf("student-") !== 0 || page === "student-login.html" || page === "student-register.html") return true;
+    var active = session();
+    if (active.role === "student" && active.id) return true;
+    location.replace("student-login.html");
+    return false;
   }
 
   // Complaint cards are rendered from data because the same records appear in
@@ -67,7 +283,7 @@
       var detail = role === "admin" ? "admin-complaint-details.html?id=" : role === "department" ? "department-complaint-details.html?id=" : "student-complaint-details.html?id=";
       var showDescription = location.pathname.indexOf("dashboard") < 0;
       return '<article class="complaint" data-complaint-id="' + escapeHtml(complaint.id) + '"><div class="complaint-top"><div><h3>' + escapeHtml(complaint.title) + '</h3><small class="text-muted">' + escapeHtml(complaint.id) + " · " + escapeHtml(complaint.date) + " · " + escapeHtml(complaint.student || "You") + '</small></div><span class="badge ' + badge(complaint.status) + '">' + escapeHtml(complaint.status) + '</span></div>' +
-        (showDescription ? "<p>" + escapeHtml(complaint.description) + "</p>" : "") + '<span class="badge">' + escapeHtml(complaint.category) + "</span> " +
+        (showDescription ? "<p>" + escapeHtml(complaint.description) + "</p>" : "") + '<span class="badge">' + escapeHtml(complaint.category) + "</span> " + (role === "student" && complaint.priority ? '<span class="badge">Priority: ' + escapeHtml(complaint.priority) + "</span> " : "") +
         (complaint.department ? '<span class="badge">Assigned: ' + escapeHtml(complaint.department) + "</span> " : "") +
         '<a class="btn btn-secondary btn-small" href="' + detail + encodeURIComponent(complaint.id) + '">View details</a>' +
         (role === "department" ? '<div class="filters dept-update"><select data-dept-status><option' + (complaint.status === "In Progress" ? " selected" : "") + '>In Progress</option><option' + (complaint.status === "Resolved" ? " selected" : "") + '>Resolved</option></select><input data-dept-remarks placeholder="Resolution remarks"><button type="button" class="btn btn-primary btn-small" data-update>Save update</button></div>' : "") + "</article>";
@@ -104,6 +320,7 @@
         item.decision = "Accepted and forwarded";
         item.adminRemarks = remarks;
         addTimeline(item, "Forwarded to " + department);
+        notifyStudent(item, "Complaint forwarded", "Your complaint has been forwarded to the " + department + " department. Complaint " + item.id + " (submitted " + item.date + ") is now with the " + department + " team.");
       } else if (action === "reject") {
         var reason = target.querySelector("#rejectionReason").value;
         if (!reason || !reason.trim()) { error.textContent = "A rejection reason is required."; return; }
@@ -113,6 +330,7 @@
         item.rejectionReason = reason.trim();
         item.adminRemarks = remarks;
         addTimeline(item, "Rejected by Admin");
+        notifyStudent(item, "Complaint rejected", "Your complaint has been rejected. Complaint " + item.id + " (submitted " + item.date + ") was closed. Reason: " + reason.trim());
       }
       save(list);
       renderDetail(item, true);
@@ -127,6 +345,7 @@
       item.status = target.querySelector("#departmentStatus").value;
       item.departmentRemarks = target.querySelector("#departmentRemarks").value.trim();
       addTimeline(item, item.status);
+      notifyStudent(item, studentStatusTitle(item), studentStatusMessage(item));
       save(list);
       renderDetail(item, false);
     });
@@ -139,8 +358,21 @@
     }).join("");
     var assignment = isForwarded(complaint) ? complaint.department : "Department not assigned yet";
     var decision = complaint.decision || (complaint.status === "Rejected" ? "Rejected" : complaint.status === "Pending Admin Review" ? "Awaiting Admin Review" : "Accepted and forwarded");
-    root.innerHTML = '<div class="complaint-top"><div><span class="eyebrow">' + escapeHtml(complaint.id) + '</span><h1>' + escapeHtml(complaint.title) + '</h1><p class="text-muted">Submitted by ' + escapeHtml(complaint.student) + " · " + escapeHtml(complaint.date) + '</p></div><span class="badge ' + badge(complaint.status) + '">' + escapeHtml(complaint.status) + "</span></div><p>" + escapeHtml(complaint.description) + '</p><p><strong>Decision:</strong> ' + escapeHtml(decision) + "<br><strong>Assignment:</strong> " + escapeHtml(assignment) + "<br><strong>Admin remarks:</strong> " + escapeHtml(complaint.adminRemarks || "—") + "<br><strong>Department remarks:</strong> " + escapeHtml(complaint.departmentRemarks || complaint.remarks || "—") + "<br><strong>Rejection reason:</strong> " + escapeHtml(complaint.rejectionReason || "—") + "</p>" +
+    var studentView = location.pathname.indexOf("student-complaint-details") >= 0;
+    var rows = [["Category", complaint.category || "Not specified"], ["Decision", decision], ["Assignment", assignment]];
+    if (complaint.priority) rows.push(["Priority", complaint.priority]);
+    if (complaint.date) rows.push(["Submitted on", complaint.date]);
+    if (complaint.adminRemarks) rows.push(["Admin remarks", complaint.adminRemarks]);
+    if (complaint.departmentRemarks || complaint.remarks) rows.push(["Department remarks", complaint.departmentRemarks || complaint.remarks]);
+    if (complaint.rejectionReason) rows.push(["Rejection reason", complaint.rejectionReason]);
+    if (studentView && complaint.studentEmail) rows.push(["Registered email", complaint.studentEmail]);
+    if (studentView && complaint.studentPhone) rows.push(["Contact number", complaint.studentPhone]);
+    if (studentView && complaint.studentNumber) rows.push(["Student ID", complaint.studentNumber]);
+    var detailRows = rows.map(function (row) { return "<p><strong>" + escapeHtml(row[0]) + ":</strong> " + escapeHtml(row[1]) + "</p>"; }).join("");
+    var photos = (complaint.attachments || []).length ? "<h2>Attached photos</h2><div class=\"preview-grid\">" + complaint.attachments.map(function (file) { return "<figure class=\"preview\"><img src=\"" + escapeHtml(file.dataUrl) + "\" alt=\"" + escapeHtml(file.name) + "\"><figcaption class=\"text-muted\">" + escapeHtml(file.name) + "</figcaption></figure>"; }).join("") + "</div>" : "";
+    root.innerHTML = '<div class="complaint-top"><div><span class="eyebrow">' + escapeHtml(complaint.id) + '</span><h1>' + escapeHtml(complaint.title) + '</h1><p class="text-muted">Submitted by ' + escapeHtml(complaint.student || "Student") + " on " + escapeHtml(complaint.date) + '</p></div><span class="badge ' + badge(complaint.status) + '">' + escapeHtml(complaint.status) + "</span></div><p>" + escapeHtml(complaint.description) + "</p>" + detailRows +
       (admin ? '<div class="filters" data-admin-controls></div>' : location.pathname.indexOf("department-complaint-details") >= 0 ? '<div class="filters" data-department-controls></div>' : "") +
+      photos +
       "<h2>Progress timeline</h2><div class=\"timeline\">" + timeline + "</div>";
     if (admin) renderAdminControls(complaint, root.querySelector("[data-admin-controls]"));
     if (!admin && location.pathname.indexOf("department-complaint-details") >= 0) renderDepartmentControls(complaint, root.querySelector("[data-department-controls]"));
@@ -179,14 +411,28 @@
       var isAdmin = form.id === "adminLoginForm";
       var isDepartment = form.id === "departmentLoginForm";
       var department = isDepartment ? departmentFromPath() : "";
-      var key = isAdmin ? "admin" : isDepartment ? department : "student";
-      var expected = data.credentials[key];
-      if (!email.trim() || !password || !expected || email.trim().toLowerCase() !== expected.username.toLowerCase() || password !== expected.password) {
-        error.textContent = "Invalid credentials. Check your email/username and password.";
+      var invalid = "Invalid credentials. Check your email/username and password.";
+      var emailKey = email.trim().toLowerCase();
+      if (!emailKey || !password) { error.textContent = "Enter your email and password."; return; }
+      if (isAdmin || isDepartment) {
+        var expected = data.credentials[isAdmin ? "admin" : department];
+        if (!expected || emailKey !== String(expected.username).toLowerCase() || password !== expected.password) { error.textContent = invalid; return; }
+        writeSession({ name: isAdmin ? "Admin" : department + " team", role: isAdmin ? "admin" : "department", department: department });
+        location.href = isAdmin ? "admin-dashboard.html" : data.dashboards[department];
         return;
       }
-      localStorage.setItem("scsDemoSession", JSON.stringify({ name: isAdmin ? "Admin" : isDepartment ? department + " team" : "Demo student", role: isAdmin ? "admin" : isDepartment ? "department" : "student", department: department }));
-      location.href = isAdmin ? "admin-dashboard.html" : isDepartment ? data.dashboards[department] : "student-dashboard.html";
+      var record = findStudent(emailKey);
+      if (record) {
+        if (String(record.passwordDigest) !== digest(password)) { error.textContent = invalid; return; }
+      } else {
+        var universityAccount = data.credentials.student;
+        if (!universityAccount || emailKey !== String(universityAccount.username).toLowerCase() || password !== universityAccount.password) { error.textContent = invalid; return; }
+      }
+      var id = normalizeKey((record && record.id) || emailKey);
+      var stored = studentProfile();
+      var displayName = stored.ownerId === id && stored.studentName ? stored.studentName : (record ? record.name : "Student");
+      writeSession({ id: id, name: displayName, email: emailKey, role: "student", department: "" });
+      location.href = "student-dashboard.html";
     });
   }
   function setupRegistration() {
@@ -206,20 +452,34 @@
         error.textContent = password !== confirmPassword ? "Passwords do not match." : "Complete all fields and use a password of at least four characters.";
         return;
       }
-      localStorage.setItem("scsDemoSession", JSON.stringify({ name: name.trim(), role: "student", department: "" }));
+      var emailKey = email.trim().toLowerCase();
+      if (findStudent(emailKey)) { error.textContent = "That email is already registered. Sign in instead."; return; }
+      var list = students();
+      list.push({ id: emailKey, name: name.trim(), email: emailKey, passwordDigest: digest(password) });
+      if (!saveStudents(list)) { error.textContent = "Browser storage is full, so the account could not be created."; return; }
+      writeSession({ id: emailKey, name: name.trim(), email: emailKey, role: "student", department: "" });
       location.href = "student-dashboard.html";
     });
   }
   function setupProfileForms() {
     document.querySelectorAll("#adminProfileForm, #studentProfileForm").forEach(function (form) {
       if (form.id === "studentProfileForm") {
-        var stored = read("scsStudentProfile", {});
+        var active = session();
+        var stored = studentProfile();
+        if (stored.ownerId && active.id && stored.ownerId !== active.id) stored = {};
+        var defaults = {
+          studentName: stored.studentName || active.name || "",
+          studentEmail: stored.studentEmail || active.email || "",
+          studentPhone: stored.studentPhone || "",
+          studentId: stored.studentId || ""
+        };
         ["studentName", "studentEmail", "studentPhone", "studentId"].forEach(function (id) {
           var field = form.querySelector("#" + id);
-          if (field && stored[id]) field.value = stored[id];
+          if (field && defaults[id] && !field.value) field.value = defaults[id];
         });
         var storedAvatar = stored.studentAvatar;
-        if (storedAvatar && form.querySelector("#profilePreview")) form.querySelector("#profilePreview").src = storedAvatar;
+        var preview = form.querySelector("#profilePreview");
+        if (storedAvatar && preview && String(storedAvatar).indexOf("data:image") === 0) preview.src = storedAvatar;
         var picture = form.querySelector("#studentPicture");
         if (picture) picture.addEventListener("change", function () {
           var file = picture.files[0];
@@ -229,14 +489,14 @@
             picture.value = "";
             return;
           }
-          var reader = new FileReader();
-          reader.onload = function () { form.querySelector("#profilePreview").src = reader.result; };
-          reader.readAsDataURL(file);
+          resizeImage(file, 192, 0.8, function (dataUrl) {
+            if (dataUrl && preview) preview.src = dataUrl;
+          });
         });
       }
       form.addEventListener("submit", function (event) {
         event.preventDefault();
-        var name = form.querySelector("input[type=text], input:not([type])");
+        var name = form.id === "studentProfileForm" ? form.querySelector("#studentName") : form.querySelector("input[type=text], input:not([type])");
         var message = form.querySelector("#profileMessage");
         if (name && !name.value.trim()) {
           message.textContent = "Name is required.";
@@ -248,19 +508,46 @@
             message.textContent = "Enter a valid phone number.";
             return;
           }
-          var profile = {};
-          form.querySelectorAll("input").forEach(function (field) { if (field.id) profile[field.id] = field.value.trim(); });
-          profile.studentAvatar = form.querySelector("#profilePreview").src;
-          saveProfile(profile);
           var active = session();
+          var profile = { ownerId: active.id || "" };
+          ["studentName", "studentEmail", "studentPhone", "studentId"].forEach(function (id) {
+            var field = form.querySelector("#" + id);
+            if (field) profile[id] = field.value.trim();
+          });
+          var current = form.querySelector("#profilePreview");
+          if (current && String(current.src).indexOf("data:image") === 0) profile.studentAvatar = current.src;
+          try {
+            localStorage.setItem("scsStudentProfile", JSON.stringify(profile));
+          } catch (error) {
+            delete profile.studentAvatar;
+            try {
+              localStorage.setItem("scsStudentProfile", JSON.stringify(profile));
+            } catch (second) {
+              message.textContent = "Profile could not be saved because browser storage is full.";
+              return;
+            }
+          }
+          var roster = students();
+          var matched = false;
+          roster.forEach(function (student) {
+            if (student.id === active.id) {
+              student.name = profile.studentName;
+              student.phone = profile.studentPhone;
+              student.studentId = profile.studentId;
+              matched = true;
+            }
+          });
+          if (matched) saveStudents(roster);
           active.name = profile.studentName;
-          localStorage.setItem("scsDemoSession", JSON.stringify(active));
+          writeSession(active);
+          setText("[data-user-name]", active.name || "Student");
+          message.textContent = "Profile saved.";
+          return;
         }
         message.textContent = "Saved for demo.";
       });
     });
   }
-  function saveProfile(profile) { localStorage.setItem("scsStudentProfile", JSON.stringify(profile)); }
   function setupStudentSidebar() {
     var toggle = document.querySelector("[data-student-menu]");
     var sidebar = document.querySelector(".student-sidebar");
@@ -338,48 +625,59 @@
       });
     });
   }
+  var pendingAttachments = [];
   function setupAttachments() {
     var input = document.querySelector("#attachments");
     var previews = document.querySelector("#previews");
     if (!input || !previews) return;
-    var files = [];
     function draw() {
-      previews.innerHTML = files.map(function (file, index) {
-        return '<div class="preview">' + (file.previewUrl ? '<img src="' + file.previewUrl + '" alt="' + escapeHtml(file.name) + '">' : "") + '<span>' + escapeHtml(file.name) + '</span><button type="button" data-remove-file="' + index + '" aria-label="Remove ' + escapeHtml(file.name) + '">×</button></div>';
+      previews.innerHTML = pendingAttachments.map(function (file, index) {
+        return "<div class=\"preview\"><img src=\"" + escapeHtml(file.dataUrl) + "\" alt=\"" + escapeHtml(file.name) + "\"><span>" + escapeHtml(file.name) + "</span><button type=\"button\" data-remove-file=\"" + index + "\" aria-label=\"Remove file\">&#215;</button></div>";
       }).join("");
       previews.querySelectorAll("[data-remove-file]").forEach(function (button) {
         button.addEventListener("click", function () {
-        var removed = files.splice(Number(button.getAttribute("data-remove-file")), 1)[0];
-        if (removed && removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
-        draw();
-      });
+          pendingAttachments.splice(Number(button.getAttribute("data-remove-file")), 1);
+          draw();
+        });
       });
     }
     input.addEventListener("change", function () {
-      var invalid = Array.prototype.slice.call(input.files).filter(function (file) {
-        return !/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 2 * 1024 * 1024;
-      });
-      if (invalid.length || files.length + input.files.length > 5) {
-        window.alert("Choose up to five JPG, PNG, or WebP images, with each file no larger than 2 MB.");
+      var chosen = Array.prototype.slice.call(input.files);
+      var invalid = chosen.filter(function (file) { return !/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 2 * 1024 * 1024; });
+      if (invalid.length || pendingAttachments.length + chosen.length > 5) {
+        window.alert("Choose up to five JPG, PNG, or WebP images, each no larger than 2 MB.");
         input.value = "";
         return;
       }
-      files = files.concat(Array.prototype.slice.call(input.files).map(function (file) {
-        file.previewUrl = URL.createObjectURL(file);
-        return file;
-      }));
-      draw();
+      var waiting = chosen.length;
+      chosen.forEach(function (file) {
+        resizeImage(file, 1000, 0.72, function (dataUrl) {
+          if (dataUrl) pendingAttachments.push({ name: file.name, dataUrl: dataUrl });
+          waiting -= 1;
+          if (waiting === 0) draw();
+        });
+      });
+      input.value = "";
     });
   }
 
   // Shared navigation and form behavior is initialized only when its matching
   // elements exist, so the same script can safely load on every page.
-  document.querySelectorAll(".logout-link").forEach(function (link) {
-    link.addEventListener("click", function () { localStorage.removeItem("scsDemoSession"); });
+  repairStoredIdentity();
+  // Delegated so the handler also covers the logout link that setupPortalShell()
+  // builds later for the admin and department sidebars. It ends this tab's sign-in
+  // only; other tabs keep their own session.
+  document.addEventListener("click", function (event) {
+    if (event.target && event.target.closest && event.target.closest(".logout-link")) clearSession();
   });
   document.querySelectorAll("[data-menu]").forEach(function (button) {
     button.addEventListener("click", function () { document.querySelector(".navbar-content").classList.toggle("open"); });
   });
+  if (!requireStudent()) return;
+  var categoryField = document.querySelector("#category");
+  if (categoryField && categoryField.tagName === "SELECT") categoryField.innerHTML = data.departments.map(function (department) { return "<option>" + escapeHtml(department) + "</option>"; }).join("");
+  var hourOfDay = new Date().getHours();
+  setText("[data-greeting]", hourOfDay < 12 ? "Good morning" : hourOfDay < 17 ? "Good afternoon" : "Good evening");
   showPasswordToggles();
   setupLogin();
   setupRegistration();
@@ -389,6 +687,37 @@
   setupStudentSidebar();
   setupPortalShell();
 
+  // The submit page already owns a message area (#formMessage), so the success
+  // confirmation stays on the form instead of sending the student straight to
+  // the details page. Both follow-up links are plain, working links.
+  function showSubmissionMessage(complaint, extra) {
+    var form = document.querySelector("#complaintForm");
+    var previews = document.querySelector("#previews");
+    var notice = document.querySelector("#formMessage");
+    pendingAttachments = [];
+    if (previews) previews.innerHTML = "";
+    if (form) form.reset();
+    if (!notice) {
+      window.alert("Your complaint has been submitted successfully. Complaint " + complaint.id + ".");
+      return;
+    }
+    notice.innerHTML = "<strong>Your complaint has been submitted successfully.</strong> " +
+      (extra ? escapeHtml(extra) + " " : "") +
+      "Complaint <strong>" + escapeHtml(complaint.id) + "</strong> was submitted on " + escapeHtml(complaint.date) +
+      " and is pending admin review." +
+      '<span class="submission-actions"><a class="btn btn-primary btn-small" href="student-my-complaints.html">View My Complaints</a> ' +
+      '<a class="btn btn-secondary btn-small" href="student-complaint-details.html?id=' + encodeURIComponent(complaint.id) + '">View complaint details</a> ' +
+      '<a class="btn btn-secondary btn-small" href="student-submit-complaint.html">Submit another complaint</a></span>';
+    if (notice.scrollIntoView) notice.scrollIntoView({ block: "nearest" });
+  }
+  function showSubmissionFailure() {
+    var notice = document.querySelector("#formMessage");
+    if (notice) {
+      notice.textContent = "Browser storage is full, so the complaint could not be saved. Remove the photos and submit again.";
+      return;
+    }
+    window.alert("Browser storage is full, so the complaint could not be saved.");
+  }
   var complaintForm = document.querySelector("#complaintForm");
   if (complaintForm) complaintForm.addEventListener("submit", function (event) {
     event.preventDefault();
@@ -400,15 +729,44 @@
       if (formMessage) formMessage.textContent = "Title and description are required.";
       return;
     }
+    var active = session();
+    var owner = studentKey(active);
+    if (!owner) {
+      var expired = document.querySelector("#formMessage");
+      if (expired) expired.textContent = "Your sign-in is no longer valid. Please sign in again and submit the complaint.";
+      window.setTimeout(function () { location.href = "student-login.html"; }, 1200);
+      return;
+    }
     var list = complaints();
-    var highestId = list.reduce(function (highest, complaint) {
+    var nextNumber = list.reduce(function (highest, complaint) {
       var number = Number(String(complaint.id || "").replace("CMP-", ""));
       return Number.isFinite(number) && number > highest ? number : highest;
-    }, 1042);
-    var item = { id: "CMP-" + (highestId + 1), title: title, description: description, category: formData.get("category"), priority: formData.get("priority"), status: "Pending Admin Review", department: "", student: session().name || "Demo student", date: "Today", decision: "Awaiting Admin Review", timeline: [["Submitted", "Today"]] };
+    }, 1042) + 1;
+    var usedIds = {};
+    list.forEach(function (complaint) { usedIds[String(complaint.id)] = true; });
+    while (usedIds["CMP-" + nextNumber]) nextNumber += 1;
+    var profile = studentProfile();
+    var submittedOn = formatDate();
+    var item = { id: "CMP-" + nextNumber, title: title, description: description, category: formData.get("category"), priority: formData.get("priority"), status: "Pending Admin Review", department: "", student: active.name || "Student", studentId: owner, studentEmail: normalizeKey(active.email) || owner, studentPhone: profile.studentPhone || "", studentNumber: profile.studentId || "", date: submittedOn, decision: "Awaiting Admin Review", attachments: pendingAttachments.slice(0, 5), timeline: [["Submitted", submittedOn]] };
     list.unshift(item);
-    save(list);
-    location.href = "student-complaint-details.html?id=" + encodeURIComponent(item.id);
+    var storageNotice = "";
+    try {
+      save(list);
+    } catch (storageError) {
+      item.attachments = [];
+      list = complaints();
+      list.unshift(item);
+      try {
+        save(list);
+      } catch (retryError) {
+        showSubmissionFailure();
+        return;
+      }
+      storageNotice = "The complaint was saved without photos because browser storage is full.";
+    }
+    notifyStudent(item, "Complaint submitted", "Your complaint has been submitted successfully. Complaint " + item.id + " was received on " + item.date + " and is pending admin review.");
+    pendingAttachments = [];
+    showSubmissionMessage(item, storageNotice);
   });
 
   var complaintList = document.querySelector("#complaintList");
@@ -428,7 +786,7 @@
       stats([]);
       return;
     }
-    if (role === "student") all = all.filter(function (complaint) { return !session().name || complaint.student === session().name || complaint.student === "Demo student"; });
+    if (role === "student") all = all.filter(function (complaint) { return isStudentComplaint(complaint); });
     if (role === "department") all = all.filter(function (complaint) { return isForwarded(complaint) && complaint.department === currentDepartment(); });
     if (role === "admin" && document.querySelector("[data-admin-view=new]")) all = all.filter(function (complaint) { return complaint.status === "Pending Admin Review"; });
     if (role === "department") {
@@ -457,33 +815,44 @@
       item.status = card.querySelector("[data-dept-status]").value;
       item.departmentRemarks = card.querySelector("[data-dept-remarks]").value.trim();
       addTimeline(item, item.status);
+      notifyStudent(item, studentStatusTitle(item), studentStatusMessage(item));
       save(list);
       location.reload();
     });
   }
+  if (!complaintList && document.querySelector("[data-count=total]")) stats(complaints());
+
   var trackList = document.querySelector("#trackList");
   if (trackList) {
     var tracked = complaints().filter(function (complaint) { return isStudentComplaint(complaint); });
-    trackList.innerHTML = tracked.length ? tracked.map(function (complaint) {
-      var steps = ["Submitted", "Pending Admin Review", "Accepted & Forwarded", "Department Processing", "Resolved"];
-      var current = complaint.status === "Rejected" ? "Rejected: " + (complaint.rejectionReason || "Rejected by Admin") : complaint.status;
-      return '<article class="card top-spacing"><div class="complaint-top"><div><h2>' + escapeHtml(complaint.title) + '</h2><small class="text-muted">' + escapeHtml(complaint.id) + '</small></div><span class="badge ' + badge(complaint.status) + '">' + escapeHtml(current) + '</span></div><div class="timeline">' + steps.map(function (step) { return '<div class="timeline-item"><strong>' + escapeHtml(step) + '</strong><p class="text-muted">' + (step === "Submitted" || (step === "Pending Admin Review" && complaint.status !== "Pending Admin Review" && complaint.status !== "Rejected") ? "Completed or recorded" : step === complaint.status ? "Current status" : "Pending") + '</p></div>'; }).join("") + '</div></article>';
-    }).join("") : '<p class="empty">You have not submitted any complaints yet.</p>';
+    render(tracked, trackList, "student");
   }
-  if (!complaintList && document.querySelector("[data-count=total]")) stats(complaints());
-
+  var notificationList = document.querySelector("#notificationList");
+  if (notificationList) {
+    var currentStudentKey = studentKey();
+    var ownNotes = notifications().filter(function (note) {
+      return Boolean(currentStudentKey) && note && normalizeKey(note.studentId) === currentStudentKey;
+    });
+    notificationList.innerHTML = ownNotes.length ? ownNotes.map(function (note) {
+      return "<article class=\"complaint\"><div class=\"complaint-top\"><div><h3>" + escapeHtml(note.title) + "</h3><small class=\"text-muted\">" + escapeHtml(note.complaintId) + " on " + escapeHtml(note.date) + "</small></div><span class=\"badge " + badge(note.status) + "\">" + escapeHtml(note.status || "") + "</span></div><p>" + escapeHtml(note.message) + "</p><a class=\"btn btn-secondary btn-small\" href=\"student-complaint-details.html?id=" + encodeURIComponent(note.complaintId) + "\">View complaint</a></article>";
+    }).join("") : "<p class=\"notice\">No new notifications.</p>";
+  }
   var detailRoot = document.querySelector("[data-detail]");
   if (detailRoot) {
-    var item = complaints().find(function (complaint) { return complaint.id === query("id"); });
+    var requestedId = normalizeKey(query("id"));
+    var item = complaints().find(function (complaint) { return normalizeKey(complaint.id) === requestedId; });
+    var studentDetailPage = location.pathname.indexOf("student-complaint-details") >= 0;
     if (!item) {
-      detailRoot.innerHTML = '<p class="notice">Complaint not found.</p>';
-    } else if (location.pathname.indexOf("student-complaint-details") >= 0 && !isStudentComplaint(item)) {
-      detailRoot.innerHTML = '<p class="notice">This complaint is not available in your student portal.</p>';
+      detailRoot.innerHTML = studentDetailPage
+        ? '<p class="notice">Complaint not found. It is not stored in this browser. <a href="student-my-complaints.html">Back to my complaints</a></p>'
+        : '<p class="notice">Complaint not found.</p>';
+    } else if (studentDetailPage && !isStudentComplaint(item)) {
+      detailRoot.innerHTML = '<p class="notice">This complaint is not available in your student portal. It belongs to a different account. <a href="student-my-complaints.html">Back to my complaints</a></p>';
     } else if (location.pathname.indexOf("department-complaint-details") >= 0 && (!isForwarded(item) || item.department !== currentDepartment())) {
       detailRoot.innerHTML = '<p class="notice">This complaint has not been forwarded to your department.</p>';
     } else {
       renderDetail(item, location.pathname.indexOf("admin-") >= 0);
     }
   }
-  setText("[data-user-name]", session().name || "Demo user");
+  setText("[data-user-name]", session().name || studentLabel());
 }());
