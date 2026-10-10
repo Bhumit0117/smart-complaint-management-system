@@ -378,7 +378,7 @@
     form.appendChild(error);
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      var email = (form.querySelector('input[type="email"], input[name="email"]') || {}).value || "";
+      var email = (form.querySelector('input[type="email"], input#email, input[name="email"], input[name="userId"]') || {}).value || "";
       var password = (form.querySelector('input[type="password"], input[name="password"], input[data-password-field]') || {}).value || "";
       var isAdmin = form.id === "adminLoginForm";
       var isDepartment = form.id === "departmentLoginForm";
@@ -386,6 +386,39 @@
       var invalid = "Invalid credentials. Check your email/username and password.";
       var emailKey = email.trim().toLowerCase();
       if (!emailKey || !password) { error.textContent = "Enter your email and password."; return; }
+      if (form.id === "loginForm") {
+        var unifiedRole = null;
+        if (data.credentials.admin && emailKey === String(data.credentials.admin.username).toLowerCase() && password === data.credentials.admin.password) {
+          unifiedRole = { name: "Admin", role: "admin", department: "", destination: "admin-dashboard.html" };
+        } else {
+          data.departments.some(function (name) {
+            var account = data.credentials[name];
+            if (!account || emailKey !== String(account.username).toLowerCase() || password !== account.password) return false;
+            unifiedRole = { name: name + " team", role: "department", department: name, destination: data.dashboards[name] };
+            return true;
+          });
+        }
+        if (unifiedRole) {
+          writeSession({ name: unifiedRole.name, role: unifiedRole.role, department: unifiedRole.department });
+          location.href = unifiedRole.destination;
+          return;
+        }
+        var unifiedStudent = findStudent(emailKey);
+        if (unifiedStudent && String(unifiedStudent.passwordDigest) === digest(password)) {
+          var registeredName = unifiedStudent.name;
+          writeSession({ id: normalizeKey(unifiedStudent.id || emailKey), name: registeredName, email: emailKey, role: "student", department: "" });
+          location.href = "student-dashboard.html";
+          return;
+        }
+        var demoStudent = data.credentials.student;
+        if (demoStudent && emailKey === String(demoStudent.username).toLowerCase() && password === demoStudent.password) {
+          writeSession({ id: emailKey, name: "Student", email: emailKey, role: "student", department: "" });
+          location.href = "student-dashboard.html";
+          return;
+        }
+        error.textContent = invalid;
+        return;
+      }
       if (isAdmin || isDepartment) {
         var expected = data.credentials[isAdmin ? "admin" : department];
         if (!expected || emailKey !== String(expected.username).toLowerCase() || password !== expected.password) { error.textContent = invalid; return; }

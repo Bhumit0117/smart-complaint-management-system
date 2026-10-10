@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Student sign in | Smart Complaint System</title>
+<title>Sign in | Smart Complaint System</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -20,28 +20,24 @@
 </div>
 </div>
 <div class="form-section">
-<span class="eyebrow">STUDENT PORTAL</span>
+<span class="eyebrow">UNIVERSITY PORTAL</span>
 <h2>Sign in</h2>
-<p class="form-subtitle">Sign in with your university email.</p>
+<p class="form-subtitle">Sign in with your email or user ID to open the correct portal.</p>
 <form id="loginForm">
 <div class="form-group">
-<label for="email">University email</label>
-<input id="email" type="email" placeholder="you@university.edu" required>
+<label for="email">Email / User ID</label>
+<input id="email" type="text" placeholder="Enter your email or user ID" autocomplete="username" required>
 </div>
 <div class="form-group">
 <label for="password">Password</label>
-<input id="password" type="password" required placeholder="Enter your password">
+<input id="password" type="password" required placeholder="Enter your password" autocomplete="current-password">
 </div>
-<button class="btn btn-primary" type="submit">Continue to dashboard</button>
+<button class="btn btn-primary" type="submit">Login</button>
 </form>
 <div class="divider">
 <span>OR</span>
 </div>
-<p>New here? <a href="student-register.html">Create an account</a>
-</p>
-<p>
-<a href="admin-login.html">Admin sign in</a>  |  <a href="department-login.html">Department sign in</a>
-</p>
+<p><a href="student-register.html">Create a New Account</a></p>
 <p class="text-muted">Student accounts, complaints and notifications stay in this browser.</p>
 </div>
 <div class="auth-footer">Smart Complaint System University Complaint Management Portal</div>
@@ -53,7 +49,6 @@
 </script>
 </body>
 </html>
-
 
 
 
