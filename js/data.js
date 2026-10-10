@@ -26,5 +26,5 @@ window.SmartComplaintData = {
     Maintenance: "department-maintenance-dashboard.html",
     Transportation: "department-transportation-dashboard.html"
   },
-  statuses: ["Pending Admin Review", "Forwarded to Department", "In Progress", "Resolved", "Rejected"]
+  statuses: ["Submitted to Department", "In Progress", "Resolved", "Rejected"]
 };

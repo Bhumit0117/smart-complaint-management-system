@@ -1,6 +1,6 @@
 # Smart Complaint System — University Complaint Management Demo
 
-Smart Complaint System is a beginner-friendly, responsive **frontend-only** prototype for a university complaint workflow. It includes a public landing page, student sign-in and registration screens, student dashboard and complaint filters, admin review, and department portals.
+Smart Complaint System is a beginner-friendly, responsive **frontend-only** prototype for a university complaint workflow. It includes a public landing page, student sign-in and registration screens, student dashboard and complaint filters, admin monitoring, and department portals.
 
 ## Run locally
 
@@ -34,7 +34,7 @@ Shared behavior lives in `js/script.js` and shared demo configuration lives in `
 - **HTML files:** contain the readable page structure, headings, navigation, forms, tables, and empty containers for dynamic records. Start here when changing page text or adding a form field.
 - **`css/style.css`:** contains the complete visual theme. It is organized into global values, navigation/public content, authentication, portal components, feedback, attachment previews, and responsive rules. Change the colour variables near the top when adjusting the theme.
 - **`js/data.js`:** contains department names, demo credentials, dashboard routes, and allowed complaint statuses.
-- **`js/script.js`:** contains behavior only: storage, demo login/registration, navigation, validation, attachment previews, complaint rendering, filters, admin decisions, department updates, and dashboard statistics. Dynamic complaint records remain in JavaScript because they depend on browser data.
+- **`js/script.js`:** contains behavior only: storage, demo login/registration, navigation, validation, attachment previews, complaint rendering, filters, department updates, student notifications, and dashboard statistics. New complaints are assigned to the selected department during student submission; Admin only monitors the stored statuses.
 
 The HTML pages were formatted so each element can be read and edited directly. Repeated portal pages intentionally remain separate static entry points to preserve every existing route; their shared appearance comes from the single stylesheet and shared script.
 

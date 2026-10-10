@@ -8,9 +8,9 @@
     dashboards: {}
   };
   var seed = [
-    { id: "CMP-1042", title: "Campus Wi-Fi issue", category: "IT", priority: "High", status: "Forwarded to Department", department: "IT", student: "Aarav Shah", date: "18 Sep 2026", description: "Connection drops repeatedly in the computer lab.", remarks: "Technician assigned.", timeline: [["Submitted", "18 Sep 2026"], ["Accepted by Admin", "19 Sep 2026"], ["Forwarded to IT", "19 Sep 2026"]] },
-    { id: "CMP-1041", title: "Hostel water cooler", category: "Hostel", priority: "Medium", status: "Pending Admin Review", department: "", student: "Meera Patel", date: "17 Sep 2026", description: "The second-floor water cooler needs servicing.", timeline: [["Submitted", "17 Sep 2026"]] },
-    { id: "CMP-1038", title: "Library study lights", category: "Library", priority: "Low", status: "Resolved", department: "Library", student: "Rohan Joshi", date: "12 Sep 2026", description: "Three lights were not working near the reference section.", remarks: "Lights replaced.", timeline: [["Submitted", "12 Sep 2026"], ["Accepted by Admin", "12 Sep 2026"], ["Forwarded to Library", "13 Sep 2026"], ["Resolved", "14 Sep 2026"]] }
+    { id: "CMP-1042", title: "Campus Wi-Fi issue", category: "IT", priority: "High", status: "Submitted to Department", department: "IT", student: "Aarav Shah", date: "18 Sep 2026", description: "Connection drops repeatedly in the computer lab.", remarks: "Technician assigned.", timeline: [["Submitted to IT", "18 Sep 2026"]] },
+    { id: "CMP-1041", title: "Hostel water cooler", category: "Hostel", priority: "Medium", status: "Submitted to Department", department: "Hostel", student: "Meera Patel", date: "17 Sep 2026", description: "The second-floor water cooler needs servicing.", timeline: [["Submitted to Hostel", "17 Sep 2026"]] },
+    { id: "CMP-1038", title: "Library study lights", category: "Library", priority: "Low", status: "Resolved", department: "Library", student: "Rohan Joshi", date: "12 Sep 2026", description: "Three lights were not working near the reference section.", remarks: "Lights replaced.", timeline: [["Submitted to Library", "12 Sep 2026"], ["In Progress", "13 Sep 2026"], ["Resolved", "14 Sep 2026"]] }
   ];
 
   // Storage helpers keep the demo data in one place. This is browser-only storage,
@@ -29,6 +29,19 @@
       save(seed);
       return seed.slice();
     }
+    var changed = false;
+    value.forEach(function (complaint) {
+      if (!complaint || complaint.status !== "Pending Admin Review") return;
+      var department = String(complaint.department || complaint.category || "").trim();
+      if (data.departments.indexOf(department) < 0) return;
+      complaint.department = department;
+      complaint.status = "Submitted to Department";
+      complaint.decision = "Sent directly to department";
+      complaint.timeline = complaint.timeline || [["Submitted", complaint.date]];
+      complaint.timeline.push(["Submitted to " + department, complaint.date || formatDate()]);
+      changed = true;
+    });
+    if (changed) save(value);
     return value;
   }
   function save(value) { localStorage.setItem("scsComplaints", JSON.stringify(value)); }
@@ -76,7 +89,7 @@
     complaint.timeline.push([label, formatDate()]);
   }
   function isForwarded(complaint) {
-    return Boolean(complaint.department) && ["Forwarded to Department", "In Progress", "Resolved"].indexOf(complaint.status) >= 0;
+    return Boolean(complaint.department) && ["Submitted to Department", "Forwarded to Department", "In Progress", "Resolved"].indexOf(complaint.status) >= 0;
   }
   function currentDepartment() { return session().department || ""; }
   function students() {
@@ -291,54 +304,14 @@
   }
   function stats(list) {
     setText("[data-count=total]", list.length);
-    setText("[data-count=pending]", list.filter(function (c) { return c.status === "Pending Admin Review"; }).length);
-    setText("[data-count=progress]", list.filter(function (c) { return c.status === "Forwarded to Department" || c.status === "In Progress"; }).length);
+    setText("[data-count=pending]", list.filter(function (c) { return c.status !== "Resolved" && c.status !== "Rejected"; }).length);
+    setText("[data-count=progress]", list.filter(function (c) { return c.status === "In Progress"; }).length);
     setText("[data-count=resolved]", list.filter(function (c) { return c.status === "Resolved"; }).length);
   }
 
-  function renderAdminControls(complaint, target) {
-    if (!target) return;
-    if (complaint.status === "Rejected" || isForwarded(complaint)) {
-      target.innerHTML = '<p class="notice">This complaint has already received an admin decision.</p>';
-      return;
-    }
-    target.innerHTML = '<input id="adminRemarks" placeholder="Admin remarks (optional)"> <select id="assignDepartment"><option value="">Select department to forward</option>' +
-      data.departments.map(function (department) { return "<option>" + escapeHtml(department) + "</option>"; }).join("") +
-      '</select> <input id="rejectionReason" placeholder="Rejection reason (required)"> <button type="button" class="btn btn-primary" data-action="forward">Accept &amp; Forward to Department</button> <button type="button" class="btn btn-danger" data-action="reject">Reject Complaint</button><p class="form-error" data-admin-error aria-live="polite"></p>';
-    target.addEventListener("click", function (event) {
-      var action = event.target.getAttribute("data-action");
-      if (!action) return;
-      var list = complaints();
-      var item = list.find(function (entry) { return entry.id === complaint.id; });
-      var error = target.querySelector("[data-admin-error]");
-      var remarks = target.querySelector("#adminRemarks").value.trim();
-      if (action === "forward") {
-        var department = target.querySelector("#assignDepartment").value;
-        if (!department) { error.textContent = "Select a department before forwarding."; return; }
-        item.status = "Forwarded to Department";
-        item.department = department;
-        item.decision = "Accepted and forwarded";
-        item.adminRemarks = remarks;
-        addTimeline(item, "Forwarded to " + department);
-        notifyStudent(item, "Complaint forwarded", "Your complaint has been forwarded to the " + department + " department. Complaint " + item.id + " (submitted " + item.date + ") is now with the " + department + " team.");
-      } else if (action === "reject") {
-        var reason = target.querySelector("#rejectionReason").value;
-        if (!reason || !reason.trim()) { error.textContent = "A rejection reason is required."; return; }
-        item.status = "Rejected";
-        item.department = "";
-        item.decision = "Rejected";
-        item.rejectionReason = reason.trim();
-        item.adminRemarks = remarks;
-        addTimeline(item, "Rejected by Admin");
-        notifyStudent(item, "Complaint rejected", "Your complaint has been rejected. Complaint " + item.id + " (submitted " + item.date + ") was closed. Reason: " + reason.trim());
-      }
-      save(list);
-      renderDetail(item, true);
-    });
-  }
   function renderDepartmentControls(complaint, target) {
     if (!target || !isForwarded(complaint) || complaint.department !== currentDepartment()) return;
-    target.innerHTML = '<select id="departmentStatus"><option>In Progress</option><option>Resolved</option></select><input id="departmentRemarks" placeholder="Department remarks"><button type="button" class="btn btn-primary" data-department-save>Save department update</button>';
+    target.innerHTML = '<select id="departmentStatus"><option' + (complaint.status === "In Progress" ? " selected" : "") + '>In Progress</option><option' + (complaint.status === "Resolved" ? " selected" : "") + '>Resolved</option></select><input id="departmentRemarks" placeholder="Department remarks"><button type="button" class="btn btn-primary" data-department-save>Save department update</button>';
     target.querySelector("[data-department-save]").addEventListener("click", function () {
       var list = complaints();
       var item = list.find(function (entry) { return entry.id === complaint.id; });
@@ -357,7 +330,7 @@
       return '<div class="timeline-item"><strong>' + escapeHtml(entry[0]) + '</strong><p class="text-muted">' + escapeHtml(entry[1]) + "</p></div>";
     }).join("");
     var assignment = isForwarded(complaint) ? complaint.department : "Department not assigned yet";
-    var decision = complaint.decision || (complaint.status === "Rejected" ? "Rejected" : complaint.status === "Pending Admin Review" ? "Awaiting Admin Review" : "Accepted and forwarded");
+    var decision = complaint.decision || (complaint.status === "Rejected" ? "Rejected" : complaint.status === "Submitted to Department" ? "Sent directly to department" : "Assigned to department");
     var studentView = location.pathname.indexOf("student-complaint-details") >= 0;
     var rows = [["Category", complaint.category || "Not specified"], ["Decision", decision], ["Assignment", assignment]];
     if (complaint.priority) rows.push(["Priority", complaint.priority]);
@@ -371,10 +344,9 @@
     var detailRows = rows.map(function (row) { return "<p><strong>" + escapeHtml(row[0]) + ":</strong> " + escapeHtml(row[1]) + "</p>"; }).join("");
     var photos = (complaint.attachments || []).length ? "<h2>Attached photos</h2><div class=\"preview-grid\">" + complaint.attachments.map(function (file) { return "<figure class=\"preview\"><img src=\"" + escapeHtml(file.dataUrl) + "\" alt=\"" + escapeHtml(file.name) + "\"><figcaption class=\"text-muted\">" + escapeHtml(file.name) + "</figcaption></figure>"; }).join("") + "</div>" : "";
     root.innerHTML = '<div class="complaint-top"><div><span class="eyebrow">' + escapeHtml(complaint.id) + '</span><h1>' + escapeHtml(complaint.title) + '</h1><p class="text-muted">Submitted by ' + escapeHtml(complaint.student || "Student") + " on " + escapeHtml(complaint.date) + '</p></div><span class="badge ' + badge(complaint.status) + '">' + escapeHtml(complaint.status) + "</span></div><p>" + escapeHtml(complaint.description) + "</p>" + detailRows +
-      (admin ? '<div class="filters" data-admin-controls></div>' : location.pathname.indexOf("department-complaint-details") >= 0 ? '<div class="filters" data-department-controls></div>' : "") +
+      (location.pathname.indexOf("department-complaint-details") >= 0 ? '<div class="filters" data-department-controls></div>' : "") +
       photos +
       "<h2>Progress timeline</h2><div class=\"timeline\">" + timeline + "</div>";
-    if (admin) renderAdminControls(complaint, root.querySelector("[data-admin-controls]"));
     if (!admin && location.pathname.indexOf("department-complaint-details") >= 0) renderDepartmentControls(complaint, root.querySelector("[data-department-controls]"));
   }
 
@@ -585,7 +557,7 @@
     };
     var links = isAdmin ? [
       ["admin-dashboard.html", "Dashboard"],
-      ["admin-complaints.html", "New Complaints"],
+      ["admin-complaints.html", "Complaints"],
       ["admin-departments.html", "Departments"],
       ["admin-reports.html", "Reports"],
       ["admin-notifications.html", "Notifications"],
@@ -704,7 +676,7 @@
     notice.innerHTML = "<strong>Your complaint has been submitted successfully.</strong> " +
       (extra ? escapeHtml(extra) + " " : "") +
       "Complaint <strong>" + escapeHtml(complaint.id) + "</strong> was submitted on " + escapeHtml(complaint.date) +
-      " and is pending admin review." +
+      " and was sent directly to the " + escapeHtml(complaint.department) + " department." +
       '<span class="submission-actions"><a class="btn btn-primary btn-small" href="student-my-complaints.html">View My Complaints</a> ' +
       '<a class="btn btn-secondary btn-small" href="student-complaint-details.html?id=' + encodeURIComponent(complaint.id) + '">View complaint details</a> ' +
       '<a class="btn btn-secondary btn-small" href="student-submit-complaint.html">Submit another complaint</a></span>';
@@ -747,7 +719,8 @@
     while (usedIds["CMP-" + nextNumber]) nextNumber += 1;
     var profile = studentProfile();
     var submittedOn = formatDate();
-    var item = { id: "CMP-" + nextNumber, title: title, description: description, category: formData.get("category"), priority: formData.get("priority"), status: "Pending Admin Review", department: "", student: active.name || "Student", studentId: owner, studentEmail: normalizeKey(active.email) || owner, studentPhone: profile.studentPhone || "", studentNumber: profile.studentId || "", date: submittedOn, decision: "Awaiting Admin Review", attachments: pendingAttachments.slice(0, 5), timeline: [["Submitted", submittedOn]] };
+    var department = String(formData.get("category") || "").trim();
+    var item = { id: "CMP-" + nextNumber, title: title, description: description, category: department, priority: formData.get("priority"), status: "Submitted to Department", department: department, student: active.name || "Student", studentId: owner, studentEmail: normalizeKey(active.email) || owner, studentPhone: profile.studentPhone || "", studentNumber: profile.studentId || "", date: submittedOn, decision: "Sent directly to department", attachments: pendingAttachments.slice(0, 5), timeline: [["Submitted to " + department, submittedOn]] };
     list.unshift(item);
     var storageNotice = "";
     try {
@@ -764,7 +737,7 @@
       }
       storageNotice = "The complaint was saved without photos because browser storage is full.";
     }
-    notifyStudent(item, "Complaint submitted", "Your complaint has been submitted successfully. Complaint " + item.id + " was received on " + item.date + " and is pending admin review.");
+    notifyStudent(item, "Complaint submitted", "Your complaint has been submitted successfully. Complaint " + item.id + " was received on " + item.date + " and was sent directly to the " + item.department + " department.");
     pendingAttachments = [];
     showSubmissionMessage(item, storageNotice);
   });
@@ -788,10 +761,9 @@
     }
     if (role === "student") all = all.filter(function (complaint) { return isStudentComplaint(complaint); });
     if (role === "department") all = all.filter(function (complaint) { return isForwarded(complaint) && complaint.department === currentDepartment(); });
-    if (role === "admin" && document.querySelector("[data-admin-view=new]")) all = all.filter(function (complaint) { return complaint.status === "Pending Admin Review"; });
     if (role === "department") {
       var view = query("view");
-      if (view === "new") all = all.filter(function (complaint) { return complaint.status === "Forwarded to Department"; });
+      if (view === "new") all = all.filter(function (complaint) { return complaint.status === "Submitted to Department" || complaint.status === "Forwarded to Department"; });
       if (view === "progress") all = all.filter(function (complaint) { return complaint.status === "In Progress"; });
       if (view === "resolved") all = all.filter(function (complaint) { return complaint.status === "Resolved"; });
     }

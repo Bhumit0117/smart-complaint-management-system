@@ -20,7 +20,7 @@
 <div>
 <span class="eyebrow">ADMIN CONSOLE</span>
 <h1>Complaint management</h1>
-<p class="text-muted">Monitor volume and route reports to departments.</p>
+<p class="text-muted">Monitor all complaints and their current resolution status.</p>
 </div>
 </div>
 <div class="stats-grid">
@@ -29,7 +29,7 @@
 <strong data-count="total">0</strong>
 </div>
 <div class="card stat-card">
-<small>Pending Admin Review</small>
+<small>Not resolved yet</small>
 <strong data-count="pending">0</strong>
 </div>
 <div class="card stat-card">
@@ -41,13 +41,13 @@
 <strong data-count="resolved">0</strong>
 </div>
 </div>
-<div class="card" data-admin-view="new">
+<div class="card">
 <h2>All complaints</h2>
 <div class="filters">
 <input data-filter="search" placeholder="Search ID, title, category">
 <select data-filter="status">
 <option>All</option>
-<option>Pending Admin Review</option>
+<option>Submitted to Department</option>
 <option>Forwarded to Department</option>
 <option>In Progress</option>
 <option>Resolved</option>
@@ -65,4 +65,3 @@
 </script>
 </body>
 </html>
-
